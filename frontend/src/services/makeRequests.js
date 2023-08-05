@@ -1,11 +1,12 @@
 import axios from "axios";
 
-export const api = axios.create({
-  baseURL: "http://localhost:3001"
+const api = axios.create({
+  baseURL: "http://localhost:3001",
+  withCredentials: true
 })
 
 export function makeRequest(url, options){
-  return axios(url, options)
+  return api(url, options)
         .then(res => res.data)
         .catch(error => error?.response?.data?.message ?? "Error")
 } 
