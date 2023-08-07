@@ -2,6 +2,7 @@ import fastify from "fastify";
 import dotenv from "dotenv";
 import sensible from "@fastify/sensible";
 import cors from "@fastify/cors";
+import cookie from "@fastify/cookie";
 import { PrismaClient } from "@prisma/client";
 dotenv.config();
 
@@ -11,7 +12,34 @@ app.register(cors, {
   origin: "http://localhost:5173",
   credentials: true
 })
+app.register(cookie, { secret: process.env.COOKIE_SECRET })
+
+app.addHook("onRequest", (req, res, done) => {
+  if(req.cookies.userId !== CURRENT_USER_ID){
+    req.cookies.userId = CURRENT_USER_ID
+    res.clearCookie("userId")
+    res.setCookie("userId", CURRENT_USER_ID)
+  }
+  done()
+})
+
 const prisma = new PrismaClient();
+const CURRENT_USER_ID = (
+  await prisma.user.findFirst({ where: { name: "Kyle" }})
+).id
+
+const COMMENT_SELECT_FIELDS = {
+  id: true,
+  message: true,
+  parentId: true,
+  createdAt: true,
+  user: {
+    select: {
+      id: true,
+      name: true
+    }
+  }
+ }
 
 app.get("/posts", async(req, res) => {
   return await commitToDB (prisma.post.findMany({
@@ -32,21 +60,28 @@ app.get("/posts/:id", async(req, res) => {
        orderBy: {
         createdAt: "desc"
        },
-       select: {
-        id: true,
-        message: true,
-        parentId: true,
-        createdAt: true,
-        user: {
-          select: {
-            id: true,
-            name: true
-          }
-        }
-       }
+       select: COMMENT_SELECT_FIELDS
       }
     }
   }))
+})
+
+app.post("/posts/:id/comments", async(req, res) => {
+  if(req.body.message === "" || req.body.message === null){
+    return res.send(app.httpErrors.badRequest("Message is required"))
+  };
+
+  return await commitToDB(
+    prisma.comment.create({
+      data:{
+        message: req.body.message,
+        userId: req.cookies.userId,
+        parentId: req.body.parentId,
+        postId: req.params.id
+      },
+      select: COMMENT_SELECT_FIELDS
+    })
+  )
 })
 
 async function commitToDB(promise) {
