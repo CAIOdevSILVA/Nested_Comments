@@ -1,18 +1,18 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react"
-import { useAsync } from "../hooks/useAsync"
-import { getPost } from "../services/posts"
-import { useParams } from "react-router-dom"
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { useAsync } from "../hooks/useAsync";
+import { getPost } from "../services/posts";
+import { useParams } from "react-router-dom";
 
-const Context = createContext()
+const Context = createContext();
 
 export function usePost(){
-  return useContext(Context)
-}
+  return useContext(Context);
+};
 
 const PostProvider = ({ children }) => {
   const { id } = useParams();
   const { error, loading, value:post } = useAsync(() => getPost(id), [id]);
-  const [comments, setComments] = useState([])
+  const [comments, setComments] = useState([]);
 
   const commentsByParentsId = useMemo(() => {
     if(comments == null) return []
@@ -24,22 +24,40 @@ const PostProvider = ({ children }) => {
     });
 
     return group;
-  }, [comments])
+  }, [comments]);
 
   useEffect(() => {
     if (post?.comments == null) return
     setComments(post.comments)
-  }, [post?.comments])
+  }, [post?.comments]);
 
   const getReplies = (parentId) => {
     return commentsByParentsId[parentId]
-  }
+  };
 
   function createLocalComment(comment) {
     setComments(prevComments => {
       return [comment, ...prevComments]
-    })
-  }
+    });
+  };
+
+  function updateLocalComment(id, message) {
+    setComments(prevComments => {
+      return prevComments.map(comment => {
+        if(comment.id === id){
+          return { ...comment, message }
+        }else{
+          return comment
+        }
+      });
+    });
+  };
+
+  function deleteLocalComment(id){
+    setComments(prevComments => {
+      return prevComments.filter((comment) => comment.id !== id )
+    });
+  };
 
   if(loading) return <h1>Loading...</h1>
   if(error) return <h1 className="error-msg">{error}</h1>
@@ -49,11 +67,13 @@ const PostProvider = ({ children }) => {
       post: { id, ...post },
       rootComments: commentsByParentsId[null],
       getReplies,
-      createLocalComment
+      createLocalComment,
+      updateLocalComment,
+      deleteLocalComment
     }}>
       {children}
     </Context.Provider>
   )
 }
 
-export default PostProvider
+export default PostProvider;

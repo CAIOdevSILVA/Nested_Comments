@@ -6,7 +6,7 @@ import IconBtn from "./IconBtn"
 import { FaEdit, FaHeart, FaReply, FaTrash } from "react-icons/fa"
 import CommentForm from "./CommentForm";
 import { useAsyncFn } from "../hooks/useAsync";
-import { createComment } from "../services/comments";
+import { createComment, updateComment, deleteComment } from "../services/comments";
 
 const dateFormatter = new Intl.DateTimeFormat(undefined, {
   dateStyle: "medium",
@@ -15,17 +15,33 @@ const dateFormatter = new Intl.DateTimeFormat(undefined, {
 
 const Comment = ({ id, message, user, createdAt }) => {
   const [areChildrenHidden, setAreChildrenHidden] = useState(false);
-  const [isReplying, setIsReplying] = useState(false)
-  const { post, getReplies, createLocalComment } = usePost();
-  const createCommentFn = useAsyncFn(createComment)
+  const [isReplying, setIsReplying] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const { post, getReplies, createLocalComment, updateLocalComment, deleteLocalComment } = usePost();
+  const createCommentFn = useAsyncFn(createComment);
+  const updateCommentFn = useAsyncFn(updateComment);
+  const deleteCommentFn = useAsyncFn(deleteComment);
   const childComments = getReplies(id);
 
   function onCommentReply(message){
     return createCommentFn.execute({ postId: post.id, message, parentId: id }).then((comment) => {
       setIsReplying(false);
       createLocalComment(comment)
-    })
-  }
+    });
+  };
+
+  function onCommentUpdate(message){
+    return updateCommentFn.execute({ postId: post.id, message, id }).then((comment) => {
+      setIsEditing(false);
+      updateLocalComment(id, comment.message)
+    });
+  };
+
+  function onCommentDelete(){
+    return deleteCommentFn.execute({ postId: post.id, id }).then((comment) => {
+      deleteLocalComment(comment.id)
+    });
+  };
 
   return (
     <>
@@ -36,7 +52,16 @@ const Comment = ({ id, message, user, createdAt }) => {
             {dateFormatter.format(Date.parse(createdAt))}
           </span>
         </div>
-        <div className="message">{message}</div>
+        {isEditing ? 
+          ( <CommentForm 
+              autoFocus 
+              initialValue={message} 
+              onSubmit={onCommentUpdate} 
+              loading={updateCommentFn.loading}
+              error={updateCommentFn.error}
+            />  ) : ( 
+          <div className="message">{message}</div> 
+          )}
         <div className="footer">
           <IconBtn Icon={FaHeart} aria-label="Like">
             2
@@ -47,8 +72,19 @@ const Comment = ({ id, message, user, createdAt }) => {
             Icon={FaReply} 
             aria-label={ isReplying ? "Cancel Reply" : "Reply"}
           />  
-          <IconBtn Icon={FaEdit} aria-label="Like"/>   
-          <IconBtn Icon={FaTrash} aria-label="Like" color={"danger"}/>
+          <IconBtn 
+            onClick={() => setIsEditing(prev => !prev)}  
+            isActive={isEditing}
+            Icon={FaEdit} 
+            aria-label={ isEditing ? "Cancel Edit" : "Edit"}
+          />   
+          <IconBtn 
+            onClick={onCommentDelete}
+            disabled={deleteCommentFn.loading}
+            Icon={FaTrash} 
+            aria-label="delete" 
+            color={"danger"}
+          />
         </div>
       </div>
       {isReplying && (
