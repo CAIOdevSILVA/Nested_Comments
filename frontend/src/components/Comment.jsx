@@ -1,27 +1,33 @@
 import { useState } from "react";
 import { usePost  } from "../context/PostContext";
 import CommentsList from "./CommentsList"
+import { useUser } from "../hooks/useUser"
 
 import IconBtn from "./IconBtn"
-import { FaEdit, FaHeart, FaReply, FaTrash } from "react-icons/fa"
+import { FaEdit, FaHeart, FaRegHeart, FaReply, FaTrash } from "react-icons/fa"
 import CommentForm from "./CommentForm";
 import { useAsyncFn } from "../hooks/useAsync";
-import { createComment, updateComment, deleteComment } from "../services/comments";
+import { createComment, updateComment, deleteComment, toggleCommentLike } from "../services/comments";
 
 const dateFormatter = new Intl.DateTimeFormat(undefined, {
   dateStyle: "medium",
   timeStyle: "short"
 })
 
-const Comment = ({ id, message, user, createdAt }) => {
+const Comment = ({ id, message, user, createdAt, likeCount, likedByMe }) => {
   const [areChildrenHidden, setAreChildrenHidden] = useState(false);
   const [isReplying, setIsReplying] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const { post, getReplies, createLocalComment, updateLocalComment, deleteLocalComment } = usePost();
+  const { post, getReplies, createLocalComment, updateLocalComment, deleteLocalComment,toggleLocalCommentLike } = usePost();
   const createCommentFn = useAsyncFn(createComment);
   const updateCommentFn = useAsyncFn(updateComment);
   const deleteCommentFn = useAsyncFn(deleteComment);
+  const toggleCommentLikeFn = useAsyncFn(toggleCommentLike);
   const childComments = getReplies(id);
+  const currentUser = useUser();
+  console.log(currentUser)
+
+  
 
   function onCommentReply(message){
     return createCommentFn.execute({ postId: post.id, message, parentId: id }).then((comment) => {
@@ -43,6 +49,12 @@ const Comment = ({ id, message, user, createdAt }) => {
     });
   };
 
+  function onToggleCommentLike() {
+    return toggleCommentLikeFn
+      .execute({ id, postId: post.id })
+      .then(({ addLike }) => toggleLocalCommentLike(id, addLike))
+  }
+
   return (
     <>
       <div className="comment">
@@ -63,8 +75,13 @@ const Comment = ({ id, message, user, createdAt }) => {
           <div className="message">{message}</div> 
           )}
         <div className="footer">
-          <IconBtn Icon={FaHeart} aria-label="Like">
-            2
+          <IconBtn
+            onClick={onToggleCommentLike}
+            disabled={toggleCommentLikeFn.loading}
+            Icon={likedByMe ? FaHeart : FaRegHeart}
+            aria-label={likedByMe ? "Unlike" : "Like"}
+          >
+            {likeCount}
           </IconBtn>
           <IconBtn 
             onClick={() => setIsReplying(prev => !prev)}  
@@ -72,20 +89,27 @@ const Comment = ({ id, message, user, createdAt }) => {
             Icon={FaReply} 
             aria-label={ isReplying ? "Cancel Reply" : "Reply"}
           />  
-          <IconBtn 
-            onClick={() => setIsEditing(prev => !prev)}  
-            isActive={isEditing}
-            Icon={FaEdit} 
-            aria-label={ isEditing ? "Cancel Edit" : "Edit"}
-          />   
-          <IconBtn 
-            onClick={onCommentDelete}
-            disabled={deleteCommentFn.loading}
-            Icon={FaTrash} 
-            aria-label="delete" 
-            color={"danger"}
-          />
+          {user?.id !== currentUser?.id && (
+            <>
+              <IconBtn 
+                onClick={() => setIsEditing(prev => !prev)}  
+                isActive={isEditing}
+                Icon={FaEdit} 
+                aria-label={ isEditing ? "Cancel Edit" : "Edit"}
+              />   
+              <IconBtn 
+                onClick={onCommentDelete}
+                disabled={deleteCommentFn.loading}
+                Icon={FaTrash} 
+                aria-label="delete" 
+                color={"danger"}
+              /> 
+            </>
+          )}
         </div>
+        {deleteCommentFn.error && (
+          <div className="error-msg mt-1">{deleteCommentFn.error}</div>
+        )}
       </div>
       {isReplying && (
         <div className="mt-1 ml-3">

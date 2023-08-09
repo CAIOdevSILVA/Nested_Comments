@@ -59,6 +59,30 @@ const PostProvider = ({ children }) => {
     });
   };
 
+  function toggleLocalCommentLike(id, addLike) {
+    setComments(prevComments => {
+      return prevComments.map(comment => {
+        if (id === comment.id) {
+          if (addLike) {
+            return {
+              ...comment,
+              likeCount: comment.likeCount + 1,
+              likedByMe: true,
+            }
+          } else {
+            return {
+              ...comment,
+              likeCount: comment.likeCount - 1,
+              likedByMe: false,
+            }
+          }
+        } else {
+          return comment
+        }
+      })
+    })
+  }
+
   if(loading) return <h1>Loading...</h1>
   if(error) return <h1 className="error-msg">{error}</h1>
 
@@ -69,7 +93,8 @@ const PostProvider = ({ children }) => {
       getReplies,
       createLocalComment,
       updateLocalComment,
-      deleteLocalComment
+      deleteLocalComment,
+      toggleLocalCommentLike
     }}>
       {children}
     </Context.Provider>
